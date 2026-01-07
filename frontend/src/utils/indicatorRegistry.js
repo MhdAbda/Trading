@@ -93,6 +93,10 @@ export const INDICATOR_REGISTRY = {
   }
 };
 
+// Align all series to 1-minute buckets to ensure timestamps match across sources
+const BUCKET_MS = 60 * 1000;
+const bucketTs = (ts) => Math.floor(ts / BUCKET_MS) * BUCKET_MS;
+
 /**
  * Get indicator value from data point
  * @param {Object} dataPoint - Data point with indicator values
@@ -138,7 +142,7 @@ export function mapIndicatorData({ priceData, rsiData, macdData, stochasticData,
   // Add price data
   if (priceData) {
     priceData.forEach(point => {
-      const ts = point.ts;
+      const ts = bucketTs(point.ts);
       if (!dataMap.has(ts)) {
         dataMap.set(ts, { ts, price: point.price });
       } else {
@@ -150,7 +154,7 @@ export function mapIndicatorData({ priceData, rsiData, macdData, stochasticData,
   // Add RSI data
   if (rsiData) {
     rsiData.forEach(point => {
-      const ts = point.ts;
+      const ts = bucketTs(point.ts);
       if (!dataMap.has(ts)) {
         dataMap.set(ts, { ts, rsi: point.rsi });
       } else {
@@ -162,7 +166,7 @@ export function mapIndicatorData({ priceData, rsiData, macdData, stochasticData,
   // Add MACD data
   if (macdData) {
     macdData.forEach(point => {
-      const ts = point.ts;
+      const ts = bucketTs(point.ts);
       if (!dataMap.has(ts)) {
         dataMap.set(ts, { ts, macd: point.macd, signal: point.signal, histogram: point.histogram });
       } else {
@@ -177,7 +181,7 @@ export function mapIndicatorData({ priceData, rsiData, macdData, stochasticData,
   // Add Stochastic data
   if (stochasticData) {
     stochasticData.forEach(point => {
-      const ts = point.ts;
+      const ts = bucketTs(point.ts);
       if (!dataMap.has(ts)) {
         dataMap.set(ts, { ts, k: point.k, d: point.d });
       } else {
@@ -191,7 +195,7 @@ export function mapIndicatorData({ priceData, rsiData, macdData, stochasticData,
   // Add Bollinger Bands data
   if (bollingerBandsData) {
     bollingerBandsData.forEach(point => {
-      const ts = point.ts;
+      const ts = bucketTs(point.ts);
       if (!dataMap.has(ts)) {
         dataMap.set(ts, { ts, upper: point.upper, middle: point.middle, lower: point.lower });
       } else {

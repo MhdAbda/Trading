@@ -109,7 +109,6 @@ function App() {
     setUser(null);
     setCustomRules([]);
     setUserMenuAnchor(null);
-    console.log('[Auth] Logged out');
   };
 
   const handleUserMenuOpen = (event) => {
@@ -125,7 +124,6 @@ function App() {
     try {
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        console.log('[Rules] No auth token, using empty rules');
         setRulesLoading(false);
         return;
       }
@@ -136,7 +134,6 @@ function App() {
 
       if (res.ok) {
         const data = await res.json();
-        console.log('[Rules] Loaded from backend:', data.data);
         
         // Transform backend field names (snake_case) to frontend format (camelCase)
         const normalizedRules = (data.data || []).map(rule => ({
@@ -152,13 +149,12 @@ function App() {
         
         setCustomRules(normalizedRules);
       } else if (res.status === 401) {
-        console.log('[Rules] Unauthorized, showing login dialog');
         setShowLoginDialog(true);
       } else {
-        console.warn('[Rules] Failed to load from backend:', res.status);
+        // silent
       }
     } catch (err) {
-      console.error('[Rules] Failed to load from backend:', err.message);
+      // silent
     } finally {
       setRulesLoading(false);
     }
@@ -180,9 +176,9 @@ function App() {
 
         // This is a simplified approach - in production, you'd track which rules changed
         // and only sync those. For now, we'll just log that changes were made.
-        console.log('[Rules] Rules changed, would sync to backend:', customRules);
+        // silent
       } catch (err) {
-        console.error('[Rules] Failed to sync rules:', err.message);
+        // silent
       }
     };
 
@@ -193,11 +189,7 @@ function App() {
 
   // Persist MACD settings
   useEffect(() => {
-    try {
-      localStorage.setItem('trading_bot_macd_settings', JSON.stringify(macdSettings));
-    } catch (err) {
-      console.error('Failed to save MACD settings to localStorage:', err);
-    }
+    try { localStorage.setItem('trading_bot_macd_settings', JSON.stringify(macdSettings)); } catch (_) {}
   }, [macdSettings]);
 
   // Data feed
@@ -220,10 +212,7 @@ function App() {
 
   // Fetch historical OHLC data on mount
   useEffect(() => {
-    fetchHistoricalData({ interval: '1min', days: 7 })
-      .catch(err => {
-        console.error('[App] Historical OHLC fetch error:', err.message || err);
-      });
+    fetchHistoricalData({ interval: '1min', days: 7 }).catch(() => {});
   }, [fetchHistoricalData]);
 
   // Filter data by selected time range
@@ -240,15 +229,27 @@ function App() {
     if (timeRange === 'all') {
       const dayStart = selectedDay;
       const dayEnd = selectedDay + 24 * 60 * 60 * 1000;
-      const filtered = rsiData.filter(d => d.ts >= dayStart && d.ts < dayEnd);
-      console.log(`[App] RSI filter: timeRange=${timeRange}, dayStart=${new Date(dayStart).toISOString()}, dayEnd=${new Date(dayEnd).toISOString()}, input=${rsiData.length}, output=${filtered.length}`);
-      if (rsiData.length > 0) {
-        console.log(`[App] RSI sample timestamps: first=${new Date(rsiData[0].ts).toISOString()}, last=${new Date(rsiData[rsiData.length - 1].ts).toISOString()}`);
-      }
-      return filtered;
+      return rsiData.filter(d => d.ts >= dayStart && d.ts < dayEnd);
     }
     return getFilteredData(rsiData, rangeMs);
   }, [rsiData, rangeMs, getFilteredData, timeRange, selectedDay]);
+
+  // Targeted debug: summarize filtered coverage on date switch
+  useEffect(() => {
+    if (timeRange !== 'all') return;
+    const dayStart = selectedDay;
+    const dayEnd = selectedDay + 24 * 60 * 60 * 1000;
+    const inRange = (arr) => (arr || []).filter(d => d.ts >= dayStart && d.ts < dayEnd).length;
+    // eslint-disable-next-line no-console
+    console.log('[RULES] Day switch summary', {
+      day: new Date(dayStart).toDateString(),
+      price: inRange(priceData),
+      rsi: inRange(rsiData),
+      macd: inRange(macdData),
+      stochastic: inRange(stochasticData),
+      bollinger: inRange(bollingerBandsData)
+    });
+  }, [selectedDay, timeRange, priceData, rsiData, macdData, stochasticData, bollingerBandsData]);
   const filteredMacdData = useMemo(() => {
     if (timeRange === 'all') {
       const dayStart = selectedDay;
@@ -306,12 +307,21 @@ function App() {
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         {/* App Bar */}
-        <AppBar position="static" color="default" elevation={0}>
-          <Toolbar>
+        <AppBar position="sticky" color="default" elevation={0} sx={{ top: 0, zIndex: (theme) => theme.zIndex.appBar }}>
+          <Toolbar sx={{ position: 'relative' }}>
             <ShowChartIcon sx={{ mr: 1, color: 'primary.main' }} />
             <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
               Gold Trading Dashboard
             </Typography>
+            {/* Day Switcher centered in Navbar */}
+            <Box sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center' }}>
+              <TimeRangeSelector 
+                value={timeRange}
+                onChange={setTimeRange}
+                selectedDay={selectedDay}
+                onDayChange={setSelectedDay}
+              />
+            </Box>
             <ConnectionStatus status={connectionStatus} />
             <SettingsDropdown 
               macdSettings={macdSettings} 
@@ -376,12 +386,6 @@ function App() {
                 justifyContent: 'space-between',
               }}
             >
-              <TimeRangeSelector 
-                value={timeRange} 
-                onChange={setTimeRange}
-                selectedDay={selectedDay}
-                onDayChange={setSelectedDay}
-              />
               <IndicatorToggles
                 visibleIndicators={visibleIndicators}
                 onChange={setVisibleIndicators}

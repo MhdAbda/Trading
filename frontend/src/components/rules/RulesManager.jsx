@@ -92,7 +92,7 @@ export default function RulesManager({ rules, onRulesChange }) {
       }
 
       const data = await res.json();
-      console.log(`[RulesManager] Rule ${isCreating ? 'created' : 'updated'}:`, data.data);
+      // silent
 
       if (isCreating) {
         // Add new rule
@@ -105,7 +105,7 @@ export default function RulesManager({ rules, onRulesChange }) {
       setEditingRule(null);
       setIsCreating(false);
     } catch (err) {
-      console.error(`[RulesManager] Failed to save rule: ${err.message}`);
+      // silent
       setError(err.message);
     } finally {
       setIsSaving(false);
@@ -144,10 +144,10 @@ export default function RulesManager({ rules, onRulesChange }) {
         throw new Error(errorData.message || 'Failed to delete rule');
       }
 
-      console.log(`[RulesManager] Rule deleted: ${ruleId}`);
+      // silent
       onRulesChange(rules.filter(r => r.id !== ruleId));
     } catch (err) {
-      console.error(`[RulesManager] Failed to delete rule: ${err.message}`);
+      // silent
       setError(err.message);
     } finally {
       setIsSaving(false);
@@ -184,10 +184,10 @@ export default function RulesManager({ rules, onRulesChange }) {
       }
 
       const data = await res.json();
-      console.log(`[RulesManager] Rule toggled: ${ruleId}`);
+      // silent
       onRulesChange(rules.map(r => r.id === ruleId ? data.data : r));
     } catch (err) {
-      console.error(`[RulesManager] Failed to toggle rule: ${err.message}`);
+      // silent
       setError(err.message);
     } finally {
       setIsSaving(false);

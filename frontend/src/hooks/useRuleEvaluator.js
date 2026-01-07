@@ -20,6 +20,7 @@ const MAX_SIGNAL_HISTORY = 500;
 export function useRuleEvaluator(rules, indicatorData) {
   const [signalHistory, setSignalHistory] = useState([]);
   const [lastDataLength, setLastDataLength] = useState(0);
+  const [lastDataSignature, setLastDataSignature] = useState(null);
 
   // Map all indicator data into unified format
   const unifiedData = useMemo(() => {
@@ -37,16 +38,59 @@ export function useRuleEvaluator(rules, indicatorData) {
     if (!rules || rules.length === 0 || unifiedData.length === 0) {
       setSignalHistory([]);
       setLastDataLength(0);
+      setLastDataSignature(null);
+      // eslint-disable-next-line no-console
+      console.log('[RULES] Skipping evaluation: rules or data missing', {
+        rules: rules ? rules.length : 0,
+        data: unifiedData ? unifiedData.length : 0
+      });
       return;
     }
 
-    // If data length hasn't changed, don't re-evaluate everything
-    if (unifiedData.length === lastDataLength && lastDataLength > 0) {
+    // Build a simple signature of the dataset to detect day/range switches
+    const firstTs = unifiedData[0]?.ts ?? 0;
+    const lastTs = unifiedData[unifiedData.length - 1]?.ts ?? 0;
+    const signature = `${unifiedData.length}|${firstTs}|${lastTs}`;
+
+    // If nothing material changed (same size and bounds), skip full rebuild
+    if (signature === lastDataSignature && lastDataLength > 0) {
+      // eslint-disable-next-line no-console
+      console.log('[RULES] No evaluation: signature unchanged', { signature });
       return;
     }
+
+    // eslint-disable-next-line no-console
+    console.log('[RULES] Re-evaluating due to signature change', {
+      previousSignature: lastDataSignature,
+      nextSignature: signature,
+      reevalRange: { startIndex: 0, endIndex: unifiedData.length - 1, points: unifiedData.length },
+      timeBounds: { first: new Date(firstTs).toISOString(), last: new Date(lastTs).toISOString() }
+    });
+
+    // Coverage snapshot
+    const coverage = unifiedData.reduce((acc, p) => {
+      if (typeof p.price === 'number') acc.price++;
+      if (typeof p.rsi === 'number') acc.rsi++;
+      if (typeof p.macd === 'number' && typeof p.signal === 'number') acc.macd++;
+      if (typeof p.k === 'number' && typeof p.d === 'number') acc.stochastic++;
+      if (typeof p.upper === 'number' && typeof p.middle === 'number' && typeof p.lower === 'number') acc.bb++;
+      return acc;
+    }, { price: 0, rsi: 0, macd: 0, stochastic: 0, bb: 0 });
+    // eslint-disable-next-line no-console
+    console.log('[RULES] Evaluating history', {
+      signature,
+      points: unifiedData.length,
+      first: new Date(firstTs).toISOString(),
+      last: new Date(lastTs).toISOString(),
+      coverage
+    });
 
     // Evaluate all rules against all historical data points
     const activeRules = rules.filter(r => r.enabled);
+    // eslint-disable-next-line no-console
+    console.log('[RULES] Active rules', { count: activeRules.length, ids: activeRules.map(r => r.id) });
+    // eslint-disable-next-line no-console
+    console.log('[RULES] Evaluation workload', { evaluations: activeRules.length * unifiedData.length });
     const allSignals = evaluateAllRulesForAllPoints(activeRules, unifiedData);
 
     // Transform to include IDs and sort by timestamp
@@ -61,7 +105,30 @@ export function useRuleEvaluator(rules, indicatorData) {
     // Update history
     setSignalHistory(transformedSignals.slice(-MAX_SIGNAL_HISTORY));
     setLastDataLength(unifiedData.length);
-  }, [rules, unifiedData, lastDataLength]);
+    setLastDataSignature(signature);
+    // eslint-disable-next-line no-console
+    console.log('[RULES] Evaluation complete', (() => {
+      const perRule = new Map();
+      transformedSignals.forEach(s => {
+        const key = s.rule.id;
+        perRule.set(key, (perRule.get(key) || 0) + 1);
+      });
+      const summary = Array.from(perRule.entries()).map(([ruleId, count]) => ({ ruleId, count }));
+      const sample = transformedSignals.slice(0, 5).map(s => ({
+        ruleId: s.rule.id,
+        name: s.rule.name,
+        action: s.action,
+        at: new Date(s.timestamp).toLocaleString(),
+        index: s.dataPointIndex
+      }));
+      return {
+        signals: transformedSignals.length,
+        uniqueRules: perRule.size,
+        perRule: summary,
+        sample
+      };
+    })());
+  }, [rules, unifiedData, lastDataLength, lastDataSignature]);
 
   // When new data arrives, evaluate only the latest point and add new signals
   useEffect(() => {
@@ -94,6 +161,8 @@ export function useRuleEvaluator(rules, indicatorData) {
           }
           return updated;
         });
+        // eslint-disable-next-line no-console
+        console.log('[RULES] Appended incremental signals', { count: transformedNewSignals.length });
       }
     }
   }, [unifiedData, lastDataLength, rules, signalHistory.length]);

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const telegramService = require('../services/telegramService');
+// Telegram notifications disabled; route returns 503
 
 /**
  * POST /api/notify/telegram
@@ -8,23 +8,7 @@ const telegramService = require('../services/telegramService');
  * Uses TELEGRAM_CHAT_ID from environment; request cannot override.
  */
 router.post('/telegram', async (req, res) => {
-  try {
-    const { message } = req.body || {};
-
-    const result = await telegramService.sendMessage({ message });
-
-    res.json({
-      ok: true,
-      chatId: result.chatId,
-      messageId: result.messageId
-    });
-  } catch (error) {
-    const status = error.status && Number.isInteger(error.status) ? error.status : 500;
-    res.status(status).json({
-      error: 'telegram_send_failed',
-      message: error.message || 'Failed to send Telegram message'
-    });
-  }
+  res.status(503).json({ ok: false, error: 'disabled', message: 'Telegram notifications are disabled' });
 });
 
 module.exports = router;

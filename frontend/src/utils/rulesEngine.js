@@ -147,7 +147,6 @@ export function evaluateCondition(condition, data, currentIndex) {
     }
 
     default:
-      console.warn(`Unknown operator: ${operator}`);
       return false;
   }
 }

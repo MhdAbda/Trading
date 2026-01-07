@@ -28,12 +28,7 @@ export function useDataFeed(timeRange, selectedDay, macdSettings) {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [lastUpdate, setLastUpdate] = useState(null);
 
-  // Log when ohlcData changes
-  useEffect(() => {
-    if (ohlcData.length === 0) {
-      console.log('[OHLC] Data cleared');
-    }
-  }, [ohlcData]);
+  // Removed noisy logs; keep state silent unless targeted debug is added elsewhere
 
   const priceSourceRef = useRef(null);
   const indicatorSourceRef = useRef(null);
@@ -205,9 +200,7 @@ export function useDataFeed(timeRange, selectedDay, macdSettings) {
             data.volume ? parseInt(data.volume) : 0
           );
         }
-      } catch (err) {
-        console.error('[SSE] Price stream parse error:', err.message);
-      }
+      } catch (_) { /* silent */ }
     };
 
     eventSource.onerror = (error) => {
@@ -294,9 +287,7 @@ export function useDataFeed(timeRange, selectedDay, macdSettings) {
             setLastUpdate(new Date());
           }
         }
-      } catch (err) {
-        console.error('[Indicators] Stream parse error:', err.message);
-      }
+      } catch (_) { /* silent */ }
     };
 
     eventSource.onerror = () => {
@@ -334,22 +325,15 @@ export function useDataFeed(timeRange, selectedDay, macdSettings) {
       const dayParam = `${year}-${month}-${day}`;
       const apiUrl = `${API_URL}/market/gold/intraday?day=${encodeURIComponent(dayParam)}`;
       
-      console.log(`[DATE-SWITCH] Loading data for day: ${dayParam}`);
-      console.log(`[DATE-SWITCH] API URL: ${apiUrl}`);
-      
       const priceRes = await fetch(apiUrl);
-      console.log(`[DATE-SWITCH] API response status: ${priceRes.status}`);
       
       if (!priceRes.ok) {
-        console.error(`[DATE-SWITCH] API error (status ${priceRes.status})`);
         return;
       }
 
       const priceJson = await priceRes.json();
-      console.log(`[DATE-SWITCH] Response: cached=${priceJson.cached}, dataPoints=${priceJson.count}, dates=${priceJson.start_date} to ${priceJson.end_date}`);
       
       if (!priceJson.data || !Array.isArray(priceJson.data)) {
-        console.error(`[DATE-SWITCH] Invalid response format`);
         return;
       }
 
@@ -362,7 +346,6 @@ export function useDataFeed(timeRange, selectedDay, macdSettings) {
         .sort((a, b) => a.ts - b.ts);
 
       const trimmedPrices = historicalPrices.slice(-MAX_BUFFER_SIZE);
-      console.log(`[DATE-SWITCH] Data processing: raw=${priceJson.data.length}, filtered=${historicalPrices.length}, trimmed=${trimmedPrices.length}`);
       
       setPriceData(trimmedPrices);
 
@@ -380,18 +363,15 @@ export function useDataFeed(timeRange, selectedDay, macdSettings) {
         .sort((a, b) => a.ts - b.ts);
       
       const trimmedOhlc = ohlcData.slice(-MAX_BUFFER_SIZE);
-      console.log(`[DATE-SWITCH] OHLC data: ${trimmedOhlc.length} points`);
       setOhlcData(trimmedOhlc);
 
       if (trimmedPrices.length > 0) {
         // Fetch historical indicators from backend instead of calculating client-side
         try {
           const indicatorUrl = `${API_URL}/market/gold/indicators/historical?day=${encodeURIComponent(dayParam)}`;
-          console.log(`[DATE-SWITCH] Fetching indicators from: ${indicatorUrl}`);
           const indicatorsRes = await fetch(indicatorUrl);
           if (indicatorsRes.ok) {
             const indicatorsJson = await indicatorsRes.json();
-            console.log(`[DATE-SWITCH] Indicators response:`, indicatorsJson);
             
             // Convert timestamps to milliseconds for consistent filtering
             const convertTimestamps = (data) => {
@@ -407,32 +387,22 @@ export function useDataFeed(timeRange, selectedDay, macdSettings) {
             const bbConverted = convertTimestamps(indicatorsJson.bollingerBands);
             
             // Log sample timestamps after conversion
-            if (rsiConverted.length > 0) {
-              console.log(`[DATE-SWITCH] RSI timestamps (converted) - first: ${new Date(rsiConverted[0].ts).toISOString()}, last: ${new Date(rsiConverted[rsiConverted.length - 1].ts).toISOString()}`);
-            }
-            if (stochConvert.length > 0) {
-              console.log(`[DATE-SWITCH] Stochastic timestamps (converted) - first: ${new Date(stochConvert[0].ts).toISOString()}, last: ${new Date(stochConvert[stochConvert.length - 1].ts).toISOString()}`);
-            }
-            
-            console.log(`[DATE-SWITCH] Indicators: rsi=${rsiConverted.length}, macd=${macdConverted.length}, stoch=${stochConvert.length}, bb=${bbConverted.length}`);
             
             setRsiData(rsiConverted);
             setMacdData(macdConverted);
             setStochasticData(stochConvert);
             setBollingerBandsData(bbConverted);
-            
-            console.log(`[DATE-SWITCH] State updated - RSI data points: ${rsiConverted.length}`);
           } else {
-            console.warn(`[DATE-SWITCH] Failed to fetch indicators (status ${indicatorsRes.status})`);
+            // silent failure; evaluator logs will indicate data coverage
           }
         } catch (err) {
-          console.error(`[DATE-SWITCH] Indicators fetch error: ${err.message}`);
+          // silent
         }
       } else {
-        console.warn(`[DATE-SWITCH] No data received from API`);
+        // silent
       }
     } catch (err) {
-      console.error(`[DATE-SWITCH] Error: ${err.message}`);
+      // silent
     }
   }, [API_URL, normalizeTimestamp, selectedDay]);
 
@@ -450,19 +420,16 @@ export function useDataFeed(timeRange, selectedDay, macdSettings) {
       const todayStr = new Date().toDateString();
       const isCurrentDay = isToday();
       
-      console.log(`[INIT] Selected: ${selectedStr} | Today: ${todayStr} | Current: ${isCurrentDay}`);
-      
       await loadHistoricalData();
       
       // Only connect to live streams if viewing today's data
       if (isCurrentDay) {
-        console.log('[INIT] Connecting SSE (current day)');
         setTimeout(() => {
           connectPriceStream();
           connectIndicatorStream();
         }, 100);
       } else {
-        console.log('[INIT] SSE disabled (viewing past date)');
+        // no live streams when viewing past
       }
     };
     
@@ -570,11 +537,11 @@ export function useDataFeed(timeRange, selectedDay, macdSettings) {
         });
 
         const historicalUrl = `${API_URL}/market/gold/historical?${queryParams}`;
-        console.log(`[Historical] Fetching OHLC (attempt ${retryCount + 1}): ${historicalUrl}`);
+        // quiet historical fetch start
         const eventSource = new EventSource(historicalUrl);
 
         const timeoutId = setTimeout(() => {
-          console.error('[Historical] Fetch timeout after 30s');
+          // quiet timeout
           eventSource.close();
           if (retryCount < maxRetries) {
             retryCount++;
@@ -590,7 +557,7 @@ export function useDataFeed(timeRange, selectedDay, macdSettings) {
 
             if (data.event === 'historical') {
               clearTimeout(timeoutId);
-              console.log(`[Historical] Received ${data.count} OHLC points`);
+              // quiet received count
               if (data.data && Array.isArray(data.data) && !historicalDataLoadedRef.current) {
                 historicalDataLoadedRef.current = true;
 
@@ -605,9 +572,7 @@ export function useDataFeed(timeRange, selectedDay, macdSettings) {
                 }))
                 .filter(item => item.ts <= Date.now() && !isNaN(item.close));
 
-                console.log(`[Historical] Transformed ${transformedData.length} OHLC points`);
                 if (transformedData.length > 0) {
-                  console.log(`[Historical] Date range: ${new Date(transformedData[0].ts).toISOString()} to ${new Date(transformedData[transformedData.length - 1].ts).toISOString()}`);
                   setOhlcData(transformedData);
                   const priceSeries = transformedData
                     .map(c => ({ ts: c.ts, price: c.close }))
@@ -621,10 +586,7 @@ export function useDataFeed(timeRange, selectedDay, macdSettings) {
                     setStochasticData(stochHistory);
                   }
                   resolve(transformedData);
-                } else {
-                  console.warn('[Historical] No OHLC points after transformation');
-                  resolve([]);
-                }
+                } else { resolve([]); }
               } else if (historicalDataLoadedRef.current) {
                 resolve([]);
               }
@@ -647,17 +609,17 @@ export function useDataFeed(timeRange, selectedDay, macdSettings) {
               }
             }
           } catch (err) {
-            console.error('[Historical] Parse error:', err.message);
+            // silent
           }
         };
 
         eventSource.onerror = (error) => {
           clearTimeout(timeoutId);
-          console.error('[Historical] SSE connection error:', error.message || error);
+          // silent
           eventSource.close();
           if (retryCount < maxRetries) {
             retryCount++;
-            console.log(`[Historical] Retrying... (${retryCount}/${maxRetries})`);
+            // silent retry
             setTimeout(attemptFetch, 1000);
           } else {
             reject(new Error('Historical data fetch failed after retries'));

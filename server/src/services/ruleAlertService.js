@@ -2,7 +2,7 @@ const logger = require('../utils/logger');
 const rulesService = require('./rulesService');
 const indicatorsService = require('./indicatorsService');
 const twelveDataStream = require('./twelveDataStream');
-const telegramService = require('./telegramService');
+// Telegram notifications are disabled
 
 // Operators supported by the frontend rules engine
 const OPERATORS = {
@@ -238,7 +238,7 @@ class RuleAlertService {
     logger.info(`[RuleAlerts] ========================================`);
     logger.info(`[RuleAlerts] Rule alert service STARTED`);
     logger.info(`[RuleAlerts] Monitoring ${this.rulesCache.length} enabled rules`);
-    logger.info(`[RuleAlerts] Telegram configured: ${require('../config/env').telegram.botToken ? 'YES' : 'NO'}`);
+    // Telegram disabled; no configuration log
     logger.info(`[RuleAlerts] ========================================`);
   }
 
@@ -435,21 +435,7 @@ class RuleAlertService {
           signal.matchedConditions.length ? 'Matched Conditions:\n' + conditionsText : 'Matched Conditions: (not provided)'
         ].join('\n');
 
-        try {
-          logger.info(`[RuleAlerts]      Attempting to send Telegram notification...`);
-          logger.info(`[RuleAlerts]      Message preview: ${message.substring(0, 100)}...`);
-          const result = await telegramService.sendMessage({ message });
-          logger.info(`[RuleAlerts]      ✅ SUCCESS! Telegram notification sent`);
-          logger.info(`[RuleAlerts]         Chat ID: ${result.chatId}`);
-          logger.info(`[RuleAlerts]         Message ID: ${result.messageId}`);
-        } catch (err) {
-          logger.error(`[RuleAlerts]      ❌ FAILED to send Telegram notification`);
-          logger.error(`[RuleAlerts]         Error: ${err.message}`);
-          logger.error(`[RuleAlerts]         Status: ${err.status || 'unknown'}`);
-          if (err.stack) {
-            logger.error(`[RuleAlerts]         Stack: ${err.stack}`);
-          }
-        }
+        // Telegram notifications disabled: skip sending and related logs
       }
       logger.info(`[RuleAlerts] ------------------------------------`);
     } catch (error) {

@@ -71,11 +71,11 @@ export default function LoginDialog({ open, onClose, onLoginSuccess }) {
       localStorage.setItem('auth_token', data.data.token);
       localStorage.setItem('user', JSON.stringify(data.data.user));
       
-      console.log('[Auth] Login successful:', data.data.user.username);
+      // silent
       onLoginSuccess(data.data.user);
       onClose();
     } catch (err) {
-      console.error('[Auth] Login error:', err);
+      // silent
       setError(err.message);
     } finally {
       setLoading(false);
@@ -112,7 +112,7 @@ export default function LoginDialog({ open, onClose, onLoginSuccess }) {
         throw new Error(data.error || 'Registration failed');
       }
 
-      console.log('[Auth] Registration successful, now logging in...');
+      // silent
       
       // Auto-login after registration
       const loginRes = await fetch('/api/auth/login', {
@@ -134,11 +134,11 @@ export default function LoginDialog({ open, onClose, onLoginSuccess }) {
       localStorage.setItem('auth_token', loginData.data.token);
       localStorage.setItem('user', JSON.stringify(loginData.data.user));
       
-      console.log('[Auth] Auto-login successful');
+      // silent
       onLoginSuccess(loginData.data.user);
       onClose();
     } catch (err) {
-      console.error('[Auth] Registration error:', err);
+      // silent
       setError(err.message);
     } finally {
       setLoading(false);
@@ -164,11 +164,11 @@ export default function LoginDialog({ open, onClose, onLoginSuccess }) {
       localStorage.setItem('auth_token', data.data.token);
       localStorage.setItem('user', JSON.stringify(data.data.user));
       
-      console.log('[Auth] Demo login successful');
+      // silent
       onLoginSuccess(data.data.user);
       onClose();
     } catch (err) {
-      console.error('[Auth] Demo login error:', err);
+      // silent
       setError(err.message);
     } finally {
       setLoading(false);
