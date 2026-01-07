@@ -47,10 +47,19 @@ export function useRuleEvaluator(rules, indicatorData) {
       return;
     }
 
-    // Build a simple signature of the dataset to detect day/range switches
+    // Build a signature of the dataset to detect day/range and coverage changes
     const firstTs = unifiedData[0]?.ts ?? 0;
     const lastTs = unifiedData[unifiedData.length - 1]?.ts ?? 0;
-    const signature = `${unifiedData.length}|${firstTs}|${lastTs}`;
+    const coverage = unifiedData.reduce((acc, p) => {
+      if (typeof p.price === 'number') acc.price++;
+      if (typeof p.rsi === 'number') acc.rsi++;
+      if (typeof p.macd === 'number' && typeof p.signal === 'number') acc.macd++;
+      if (typeof p.k === 'number' && typeof p.d === 'number') acc.stochastic++;
+      if (typeof p.upper === 'number' && typeof p.middle === 'number' && typeof p.lower === 'number') acc.bb++;
+      return acc;
+    }, { price: 0, rsi: 0, macd: 0, stochastic: 0, bb: 0 });
+    const coverageSignature = `${coverage.price}|${coverage.rsi}|${coverage.macd}|${coverage.stochastic}|${coverage.bb}`;
+    const signature = `${unifiedData.length}|${firstTs}|${lastTs}|${coverageSignature}`;
 
     // If nothing material changed (same size and bounds), skip full rebuild
     if (signature === lastDataSignature && lastDataLength > 0) {
@@ -67,15 +76,6 @@ export function useRuleEvaluator(rules, indicatorData) {
       timeBounds: { first: new Date(firstTs).toISOString(), last: new Date(lastTs).toISOString() }
     });
 
-    // Coverage snapshot
-    const coverage = unifiedData.reduce((acc, p) => {
-      if (typeof p.price === 'number') acc.price++;
-      if (typeof p.rsi === 'number') acc.rsi++;
-      if (typeof p.macd === 'number' && typeof p.signal === 'number') acc.macd++;
-      if (typeof p.k === 'number' && typeof p.d === 'number') acc.stochastic++;
-      if (typeof p.upper === 'number' && typeof p.middle === 'number' && typeof p.lower === 'number') acc.bb++;
-      return acc;
-    }, { price: 0, rsi: 0, macd: 0, stochastic: 0, bb: 0 });
     // eslint-disable-next-line no-console
     console.log('[RULES] Evaluating history', {
       signature,
